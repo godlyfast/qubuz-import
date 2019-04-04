@@ -64,8 +64,96 @@ const handler = albumId =>
 
       const picBuff = Buffer.alloc(pic.length, pic, "base64");
 
+      const pushTags = track =>
+        new Promise(async (resolve, reject) => {
+          console.log("PUSHING TAGS");
+          const processor = new flac.Processor();
+          let mdbVorbis;
+          let mdbPicture;
+          const comments = [
+            `ARTIST=${album.artist.name}`,
+            `TITLE=${track.title}`,
+            `ALBUM=${album.title}`,
+            `TRACKNUMBER=${track.track_number}`,
+            `DATE=${new Date(album.released_at).getFullYear()}`,
+            `GENRE=${album.genre.name}`
+            // `METADATA_BLOCK_PICTURE=${pic}`
+          ];
+
+          processor.on("preprocess", function(mdb) {
+            console.log("PREPROCESS", track.title);
+            // Remove existing VORBIS_COMMENT block, if any.
+            if (mdb.type === flac.Processor.MDB_TYPE_VORBIS_COMMENT) {
+              mdb.remove();
+            }
+
+            if (mdb.type === flac.Processor.MDB_TYPE_PICTURE) {
+              mdb.remove();
+            }
+            // Prepare to add new VORBIS_COMMENT block as last metadata block.
+
+            if (mdb.isLast) {
+              mdb.isLast = false;
+              mdbVorbis = flac.data.MetaDataBlockVorbisComment.create(
+                false,
+                vendor,
+                comments
+              );
+
+              mdbPicture = flac.data.MetaDataBlockPicture.create(
+                // isLast, pictureType, mimeType, description,
+                // width, height, bitsPerPixel, colors, pictureData
+                true,
+                3,
+                "image/jpeg",
+                "",
+                600,
+                600,
+                32,
+                0,
+                picBuff
+              );
+            }
+          });
+
+          processor.on("postprocess", function(mdb) {
+            if (mdbVorbis) {
+              console.log("PUSHING VOB", track.title);
+              // Add new VORBIS_COMMENT block as last metadata block.
+              this.push(mdbVorbis.publish());
+            }
+            if (mdbPicture) {
+              console.log("PUSHING PIC", track.title);
+
+              this.push(mdbPicture.publish());
+            }
+          });
+          await new Promise((resolve, reject) =>
+            fs
+              .createReadStream(
+                __dirname + `/downloads/${album.slug}/${track.id}.flac`
+              )
+              .pipe(processor)
+              .pipe(
+                fs.createWriteStream(
+                  __dirname + `/downloads/${album.slug}/${track.id}_.flac`
+                )
+              )
+              .on("finish", resolve)
+              .on("error", reject)
+          );
+
+          fs.unlink(
+            __dirname + `/downloads/${album.slug}/${track.id}.flac`,
+            err => {
+              if (err) return reject(err);
+              resolve(`TAGGED ${track.title}`);
+            }
+          );
+        });
+
       const downloadTrack = async track => {
-        console.log('STARING', track.title);
+        console.log("STARING", track.title);
         //userAuthToken, trackId, formatId, intent
         const dfu = await client.track.getFileUrl(
           user.user_auth_token,
@@ -74,71 +162,9 @@ const handler = albumId =>
           "import"
         );
 
-        const processor = new flac.Processor();
-        let mdbVorbis;
-        let mdbPicture;
-        const comments = [
-          `ARTIST=${album.artist.name}`,
-          `TITLE=${track.title}`,
-          `ALBUM=${album.title}`,
-          `TRACKNUMBER=${track.track_number}`,
-          `DATE=${new Date(album.released_at).getFullYear()}`,
-          `GENRE=${album.genre.name}`
-          // `METADATA_BLOCK_PICTURE=${pic}`
-        ];
-
-        processor.on("preprocess", function(mdb) {
-          // Remove existing VORBIS_COMMENT block, if any.
-          if (mdb.type === flac.Processor.MDB_TYPE_VORBIS_COMMENT) {
-            mdb.remove();
-          }
-
-          if (mdb.type === flac.Processor.MDB_TYPE_PICTURE) {
-            mdb.remove();
-          }
-          // Prepare to add new VORBIS_COMMENT block as last metadata block.
-
-          if (mdb.isLast) {
-            mdb.isLast = false;
-            mdbVorbis = flac.data.MetaDataBlockVorbisComment.create(
-              false,
-              vendor,
-              comments
-            );
-
-            mdbPicture = flac.data.MetaDataBlockPicture.create(
-              // isLast, pictureType, mimeType, description,
-              // width, height, bitsPerPixel, colors, pictureData
-              true,
-              3,
-              "image/jpeg",
-              "",
-              600,
-              600,
-              32,
-              0,
-              picBuff
-            );
-          }
-        });
-
-        processor.on("postprocess", function(mdb) {
-          if (mdbVorbis) {
-            console.log('PUSHING VOB', track.title);
-            // Add new VORBIS_COMMENT block as last metadata block.
-            this.push(mdbVorbis.publish());
-          }
-          if (mdbPicture) {
-            console.log('PUSHING PIC', track.title);
-
-            this.push(mdbPicture.publish());
-          }
-        });
-
         await new Promise((resolve, reject) =>
           http.get(dfu.url, response =>
             response
-              .pipe(processor)
               .pipe(
                 fs.createWriteStream(
                   `downloads/${album.slug}/${dfu.track_id}.flac`
@@ -148,15 +174,25 @@ const handler = albumId =>
               .on("error", reject)
           )
         );
-        console.log('FINISHED', track.title);
+        console.log("FINISHED", track.title);
       };
 
       const result = await Promise.all(
-        [album.tracks.items[0], album.tracks.items[1]].map(i =>
-          downloadTrack(i)
+        album.tracks.items.map(
+          i =>
+            new Promise(async (res, rej) => {
+              try {
+                await downloadTrack(i);
+                await pushTags(i);
+                res(`${i.title} success`);
+              } catch (e) {
+                console.log("ERROR, ", e);
+                rej(e);
+              }
+            })
         )
       );
-      console.log(result)
+      console.log(result);
     } catch (e) {
       reject(e);
     }
