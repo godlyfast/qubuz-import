@@ -1,0 +1,16 @@
+{
+  "name": "qobuz-import",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^7.0.0",
+    "flac-metadata": "^0.1.1",
+    "qobuz": "^1.0.2-alpha"
+  }
+}
