@@ -65,6 +65,7 @@ const handler = albumId =>
       const picBuff = Buffer.alloc(pic.length, pic, "base64");
 
       const downloadTrack = async track => {
+        console.log('STARING', track.title);
         //userAuthToken, trackId, formatId, intent
         const dfu = await client.track.getFileUrl(
           user.user_auth_token,
@@ -123,10 +124,13 @@ const handler = albumId =>
 
         processor.on("postprocess", function(mdb) {
           if (mdbVorbis) {
+            console.log('PUSHING VOB', track.title);
             // Add new VORBIS_COMMENT block as last metadata block.
             this.push(mdbVorbis.publish());
           }
           if (mdbPicture) {
+            console.log('PUSHING PIC', track.title);
+
             this.push(mdbPicture.publish());
           }
         });
@@ -144,6 +148,7 @@ const handler = albumId =>
               .on("error", reject)
           )
         );
+        console.log('FINISHED', track.title);
       };
 
       const result = await Promise.all(
