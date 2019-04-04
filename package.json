@@ -11,6 +11,7 @@
   "dependencies": {
     "dotenv": "^7.0.0",
     "flac-metadata": "^0.1.1",
-    "qobuz": "^1.0.2-alpha"
+    "qobuz": "^1.0.2-alpha",
+    "rimraf": "^2.6.3"
   }
 }

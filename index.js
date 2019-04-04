@@ -3,6 +3,7 @@
 const Qobuz = require("qobuz");
 const http = require("http");
 const https = require("https");
+const rimraf = require("rimraf");
 
 const fs = require("fs");
 const flac = require("flac-metadata");
@@ -39,8 +40,10 @@ const handler = albumId =>
       );
       const album = await client.album.get(albumId);
 
-      // console.log({album});
-      // process.exit();
+      await new Promise((res, rej) =>
+        rimraf(`downloads/${album.slug}`, () => res())
+      );
+
       if (!fs.existsSync(`downloads/${album.slug}`)) {
         fs.mkdirSync(`downloads/${album.slug}`);
       }
@@ -71,9 +74,9 @@ const handler = albumId =>
         );
 
         const processor = new flac.Processor();
-        var mdbVorbis;
-        var mdbPicture;
-        var comments = [
+        let mdbVorbis;
+        let mdbPicture;
+        const comments = [
           `ARTIST=${album.artist.name}`,
           `TITLE=${track.title}`,
           `ALBUM=${album.title}`,
@@ -128,18 +131,27 @@ const handler = albumId =>
           }
         });
 
-        const request = http.get(dfu.url, response =>
-          response
-            .pipe(processor)
-            .pipe(
-              fs.createWriteStream(
-                `downloads/${album.slug}/${dfu.track_id}.flac`
+        await new Promise((resolve, reject) =>
+          http.get(dfu.url, response =>
+            response
+              .pipe(processor)
+              .pipe(
+                fs.createWriteStream(
+                  `downloads/${album.slug}/${dfu.track_id}.flac`
+                )
               )
-            )
+              .on("finish", resolve)
+              .on("error", reject)
+          )
         );
       };
 
-      await Promise.all(album.tracks.items.map(i => downloadTrack(i)));
+      const result = await Promise.all(
+        [album.tracks.items[0], album.tracks.items[1]].map(i =>
+          downloadTrack(i)
+        )
+      );
+      console.log(result)
     } catch (e) {
       reject(e);
     }
