@@ -199,7 +199,9 @@ const handler = albumId =>
   });
 
 require("dotenv").config();
-
-handler(process.argv[2]).catch(err => {
+handler(
+  process.argv[2].indexOf('https') > -1 ?
+  process.argv[2].split('/').pop() : process.argv[2]
+).catch(err => {
   console.log("Error: " + err.message);
 });
