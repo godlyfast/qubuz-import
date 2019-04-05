@@ -70,6 +70,7 @@ const handler = albumId =>
           const processor = new flac.Processor();
           let mdbVorbis;
           let mdbPicture;
+          let vobPushed, picPushed;
           const comments = [
             `ARTIST=${album.artist.name}`,
             `TITLE=${track.title}`,
@@ -118,14 +119,17 @@ const handler = albumId =>
 
           processor.on("postprocess", function(mdb) {
             if (mdbVorbis) {
-              console.log("PUSHING VOB", track.title);
+              // console.log("PUSHING VOB", track.title);
               // Add new VORBIS_COMMENT block as last metadata block.
               this.push(mdbVorbis.publish());
+              vobPushed = true;
+
             }
             if (mdbPicture) {
-              console.log("PUSHING PIC", track.title);
+              // console.log("PUSHING PIC", track.title);
 
               this.push(mdbPicture.publish());
+              picPushed = true;
             }
           });
           await new Promise((resolve, reject) =>
@@ -139,7 +143,9 @@ const handler = albumId =>
                   __dirname + `/downloads/${album.slug}/${track.id}_.flac`
                 )
               )
-              .on("finish", resolve)
+              .on("finish", () => {
+                if (vobPushed && picPushed) resolve(); else reject(new Error('Tags did not pushed!'));
+              })
               .on("error", reject)
           );
 
