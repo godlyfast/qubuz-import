@@ -123,7 +123,6 @@ const handler = albumId =>
               // Add new VORBIS_COMMENT block as last metadata block.
               this.push(mdbVorbis.publish());
               vobPushed = true;
-
             }
             if (mdbPicture) {
               // console.log("PUSHING PIC", track.title);
@@ -144,7 +143,8 @@ const handler = albumId =>
                 )
               )
               .on("finish", () => {
-                if (vobPushed && picPushed) resolve(); else reject(new Error('Tags did not pushed!'));
+                if (vobPushed && picPushed) resolve();
+                else reject(new Error("Tags did not pushed!"));
               })
               .on("error", reject)
           );
@@ -206,8 +206,9 @@ const handler = albumId =>
 
 require("dotenv").config();
 handler(
-  process.argv[2].indexOf('https') > -1 ?
-  process.argv[2].split('/').pop() : process.argv[2]
+  process.argv[2].indexOf("https") > -1
+    ? process.argv[2].split("/").pop()
+    : process.argv[2]
 ).catch(err => {
   console.log("Error: " + err.message);
   process.exit();
