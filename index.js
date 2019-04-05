@@ -66,7 +66,6 @@ const handler = albumId =>
 
       const pushTags = track =>
         new Promise(async (resolve, reject) => {
-          console.log("PUSHING TAGS");
           const processor = new flac.Processor();
           let mdbVorbis;
           let mdbPicture;
@@ -82,7 +81,6 @@ const handler = albumId =>
           ];
 
           processor.on("preprocess", function(mdb) {
-            console.log("PREPROCESS", track.title);
             // Remove existing VORBIS_COMMENT block, if any.
             if (mdb.type === flac.Processor.MDB_TYPE_VORBIS_COMMENT) {
               mdb.remove();
