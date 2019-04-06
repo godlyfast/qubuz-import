@@ -222,8 +222,6 @@ const handler = albumId =>
         ).getFullYear()}`
       );
 
-      console.log(album);
-
       const result = await Promise.all(
         album.tracks.items.map(
           i =>
