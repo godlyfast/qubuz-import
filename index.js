@@ -187,30 +187,34 @@ const handler = albumId =>
           );
         });
 
-      const downloadTrack = async track => {
-        console.log("DL STARING", track.title);
-        //userAuthToken, trackId, formatId, intent
-        const dfu = await client.track.getFileUrl(
-          user.user_auth_token,
-          track.id,
-          "27",
-          "import"
-        );
+      const downloadTrack = track =>
+        new Promise(async (resolve, reject) => {
+          console.log("DL STARING", track.title);
+          //userAuthToken, trackId, formatId, intent
+          const dfu = await client.track.getFileUrl(
+            user.user_auth_token,
+            track.id,
+            "27",
+            "import"
+          );
 
-        await new Promise((resolve, reject) =>
-          http.get(dfu.url, response =>
-            response
-              .pipe(
-                fs.createWriteStream(
-                  __dirname + `/downloads/${album.slug}/${dfu.track_id}.flac`
+          if (!dfu.url) return reject(new Error("No Download URL"));
+
+          await new Promise((resolve, reject) =>
+            http.get(dfu.url, response =>
+              response
+                .pipe(
+                  fs.createWriteStream(
+                    __dirname + `/downloads/${album.slug}/${dfu.track_id}.flac`
+                  )
                 )
-              )
-              .on("finish", resolve)
-              .on("error", reject)
-          )
-        );
-        console.log("DL FINISHED", track.title);
-      };
+                .on("finish", resolve)
+                .on("error", reject)
+            )
+          );
+          console.log("DL FINISHED", track.title);
+          resolve();
+        });
 
       const result = await Promise.all(
         album.tracks.items.map(
@@ -219,10 +223,10 @@ const handler = albumId =>
               try {
                 if (
                   fs.existsSync(
-                    __dirname + `/downloads/${album.slug}/${i.track_id}_.flac`
+                    __dirname + `/downloads/${album.slug}/${i.id}_.flac`
                   )
                 ) {
-                  console.log("File exists", stat);
+                  console.log("File exists", i.title);
                   res(`${i.title} exists`);
                 } else {
                   await downloadTrack(i);
