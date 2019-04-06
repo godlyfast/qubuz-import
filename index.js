@@ -79,7 +79,7 @@ const handler = albumId =>
             `TITLE=${track.title}`,
             `ALBUM=${album.title}`,
             `TRACKNUMBER=${track.track_number}`,
-            `DATE=${new Date(album.released_at).getFullYear()}`,
+            `DATE=${new Date(album.released_at * 1000).getFullYear()}`,
             `GENRE=${album.genre.name}`
             // `METADATA_BLOCK_PICTURE=${pic}`
           ];
@@ -215,6 +215,14 @@ const handler = albumId =>
           console.log("DL FINISHED", track.title);
           resolve();
         });
+
+      console.log(
+        `Downloading ${album.artist.name} - ${album.title} ${new Date(
+          album.released_at * 1000
+        ).getFullYear()}`
+      );
+
+      console.log(album);
 
       const result = await Promise.all(
         album.tracks.items.map(
