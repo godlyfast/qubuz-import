@@ -40,25 +40,29 @@ const handler = albumId =>
       );
       const album = await client.album.get(albumId);
 
-      await new Promise((res, rej) =>
-        rimraf(`downloads/${album.slug}`, () => res())
-      );
+      //await new Promise((res, rej) =>
+      //  rimraf(`downloads/${album.slug}`, () => res())
+      //);
 
-      if (!fs.existsSync(`downloads/${album.slug}`)) {
-        fs.mkdirSync(`downloads/${album.slug}`);
+      if (!fs.existsSync(__dirname + `/downloads/${album.slug}`)) {
+        fs.mkdirSync(__dirname + `/downloads/${album.slug}`);
       }
 
       await new Promise((res, rej) =>
         https.get(album.image.large, resp =>
           resp
-            .pipe(fs.createWriteStream(`downloads/${album.slug}/picture.jpg`))
+            .pipe(
+              fs.createWriteStream(
+                __dirname + `/downloads/${album.slug}/picture.jpg`
+              )
+            )
             .on("finish", () => res())
             .on("error", err => rej(err))
         )
       );
 
       const pic = fs.readFileSync(
-        `downloads/${album.slug}/picture.jpg`,
+        __dirname + `/downloads/${album.slug}/picture.jpg`,
         "base64"
       );
 
@@ -141,8 +145,35 @@ const handler = albumId =>
                 )
               )
               .on("finish", () => {
-                if (vobPushed && picPushed) resolve();
-                else reject(new Error("Tags did not pushed!"));
+                if (vobPushed && picPushed) {
+                  resolve(`${track.id} ${track.title} tagged`);
+                } else {
+                  Promise.all(
+                    [
+                      new Promise((resolve, reject) =>
+                        fs.unlink(
+                          __dirname +
+                            `/downloads/${album.slug}/${track.id}.flac`,
+                          err => {
+                            if (err) return reject(err);
+                            resolve(`REMOVED ${track.title}`);
+                          }
+                        )
+                      ),
+                      new Promise((resolve, reject) =>
+                        fs.unlink(
+                          __dirname +
+                            `/downloads/${album.slug}/${track.id}_.flac`,
+                          err => {
+                            if (err) return reject(err);
+                            resolve(`REMOVED ${track.title}_`);
+                          }
+                        )
+                      )
+                    ],
+                    () => resolve(new Error(`${track.title} Download Failed`))
+                  );
+                }
               })
               .on("error", reject)
           );
@@ -157,7 +188,7 @@ const handler = albumId =>
         });
 
       const downloadTrack = async track => {
-        console.log("STARING", track.title);
+        console.log("DL STARING", track.title);
         //userAuthToken, trackId, formatId, intent
         const dfu = await client.track.getFileUrl(
           user.user_auth_token,
@@ -171,14 +202,14 @@ const handler = albumId =>
             response
               .pipe(
                 fs.createWriteStream(
-                  `downloads/${album.slug}/${dfu.track_id}.flac`
+                  __dirname + `/downloads/${album.slug}/${dfu.track_id}.flac`
                 )
               )
               .on("finish", resolve)
               .on("error", reject)
           )
         );
-        console.log("FINISHED", track.title);
+        console.log("DL FINISHED", track.title);
       };
 
       const result = await Promise.all(
@@ -186,9 +217,18 @@ const handler = albumId =>
           i =>
             new Promise(async (res, rej) => {
               try {
-                await downloadTrack(i);
-                await pushTags(i);
-                res(`${i.title} success`);
+                if (
+                  fs.existsSync(
+                    __dirname + `/downloads/${album.slug}/${i.track_id}_.flac`
+                  )
+                ) {
+                  console.log("File exists", stat);
+                  res(`${i.title} exists`);
+                } else {
+                  await downloadTrack(i);
+                  await pushTags(i);
+                  res(`${i.title} success`);
+                }
               } catch (e) {
                 console.log("ERROR, ", e);
                 rej(e);
